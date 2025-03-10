@@ -1,1 +1,68 @@
-domain = 'http://blog.wangsy.me'
+addr = ":8090"
+domain = "http://localhost:8090"
+title = "Wblog"
+session_secret = "wblog"
+file_server = "smms"
+notify_emails = ""
+page_size = 10
+public = "static"
+view = "views/**/*"
+signup_enabled = true
+
+[database]
+dialect = "mysql"
+dsn = "wblog:wblog@tcp(mysql:3306)/wblog?charset=utf8mb4&parseTime=True&loc=Asia%2FShanghai"
+
+[seo]
+description = "Wblog,基于Go语言的博客系统"
+[seo.author]
+name = "wangsy"
+email = "wangsy0129@qq.com"
+
+[qiniu]
+enabled = false
+accesskey = ""
+secretkey = ""
+fileserver = ""
+bucket = "wblog"
+
+[smms]
+enabled = true
+apiurl = "https://sm.ms/api/v2/upload"
+apikey = ""
+
+[github]
+enabled = false
+clientid = ""
+clientsecret = ""
+redirecturl = "http://localhost:8090/oauth2callback"
+authurl = "https://github.com/login/oauth/authorize?client_id=%s&scope=user:email&state=%s"
+tokenurl = "https://github.com/login/oauth/access_token"
+scope = ""
+
+[smtp]
+enabled = false
+username = ""
+password = ""
+host = "smtp.163.com:25"
+
+[backup]
+enabled = false
+backup_key = ""
+
+[[navigators]]
+title = "文章"
+url = "/index"
+
+[[navigators]]
+title = "关于"
+url = "/page/6"
+
+[[navigators]]
+title = "RSS"
+url = "/rss"
+target = "_blank"
+
+[[navigators]]
+title = "订阅"
+url = "/subscribe"
