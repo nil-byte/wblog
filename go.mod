@@ -7,7 +7,6 @@ toolchain go1.22.7
 require (
 	github.com/alimoeeny/gooauth2 v0.0.0-20140214171402-62c620a8c7eb
 	github.com/cihub/seelog v0.0.0-20170130134532-f561c5e57575
-	github.com/claudiu/gocron v0.0.0-20151103142354-980c96bf412b
 	github.com/dchest/captcha v0.0.0-20170622155422-6a29415a8364
 	github.com/denisbakhtin/sitemap v0.0.0-20151103020935-3b73dfe0369c
 	github.com/gin-contrib/sessions v0.0.0-20190512062852-3cb4c4f2d615
@@ -25,6 +24,11 @@ require (
 )
 
 require (
+	github.com/robfig/cron/v3 v3.0.1 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
+)
+
+require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/bytedance/sonic v1.12.3 // indirect
 	github.com/bytedance/sonic/loader v0.2.1 // indirect
@@ -35,6 +39,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.6 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect
 	github.com/glebarez/go-sqlite v1.21.2 // indirect
+	github.com/go-co-op/gocron v1.37.0
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.22.1 // indirect

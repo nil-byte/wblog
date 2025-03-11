@@ -24,3 +24,4 @@ request.token
 !/vendor/vendor.json
 
 dist/
+introduce.md

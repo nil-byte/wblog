@@ -14,7 +14,9 @@ func DateFormat(date time.Time, layout string) string {
 
 // Substring 截取字符串
 func Substring(source string, start, end int) string {
-	rs := []rune(source)
+	// 字符串是以字节（byte）序列的形式存储的，每个字符可能由一个或多个字节组成，特别是在处理包含非 ASCII 字符（如中文）的字符串
+	//直接对字符串进行切片操作可能导致截断字符，产生乱码或错误
+	rs := []rune(source) 
 	length := len(rs)
 	if start < 0 {
 		start = 0

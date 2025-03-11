@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -66,7 +66,7 @@ func RestorePost(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err = ioutil.ReadAll(resp.Body)
+	bodyBytes, err = io.ReadAll(resp.Body)
 	if err != nil {
 		res["message"] = err.Error()
 		return
@@ -78,7 +78,7 @@ func RestorePost(c *gin.Context) {
 			return
 		}
 	}
-	err = ioutil.WriteFile(fileName, bodyBytes, os.ModePerm)
+	err = os.WriteFile(fileName, bodyBytes, os.ModePerm)
 	if err == nil {
 		res["message"] = err.Error()
 		return
@@ -116,7 +116,7 @@ func Backup() (err error) {
 		return
 	}
 	seelog.Debug("start backup...")
-	bodyBytes, err = ioutil.ReadFile(u.Path)
+	bodyBytes, err = os.ReadFile(u.Path)
 	if err != nil {
 		seelog.Error(err)
 		return

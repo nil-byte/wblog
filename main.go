@@ -2,19 +2,24 @@ package main
 
 import (
 	"flag"
+	"time"
+
 	"github.com/cihub/seelog"
-	"github.com/claudiu/gocron"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
-	"github.com/gin-gonic/gin"
-	"github.com/wangsongyan/wblog/controllers"
-	"github.com/wangsongyan/wblog/helpers"
-	"github.com/wangsongyan/wblog/models"
-	"github.com/wangsongyan/wblog/system"
+
 	"html/template"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
+	"github.com/gin-gonic/gin"
+	"github.com/go-co-op/gocron"  // 定时任务
+	// "github.com/claudiu/gocron" // 不再活跃
+	"github.com/wangsongyan/wblog/controllers"
+	"github.com/wangsongyan/wblog/helpers"
+	"github.com/wangsongyan/wblog/models"
+	"github.com/wangsongyan/wblog/system"
 )
 
 func main() {
@@ -29,40 +34,40 @@ func main() {
 		os.Exit(0)
 	}
 
+	// 解析seelog.xml配置文件，初始化日志 
 	logger, err := seelog.LoggerFromConfigAsFile(*logConfigPath)
 	if err != nil {
 		seelog.Critical("err parsing seelog config file", err)
 		return
 	}
-	seelog.ReplaceLogger(logger)
-	defer seelog.Flush()
+	seelog.ReplaceLogger(logger) // 替换日志记录器
+	defer seelog.Flush() // 刷新日志
 
+	// 加载配置文件
 	if err := system.LoadConfiguration(*configFilePath); err != nil {
 		seelog.Critical("err parsing config log file", err)
 		return
 	}
 
-	db, err := models.InitDB()
+	// 初始化数据库
+	err = models.InitDB()
 	if err != nil {
 		seelog.Critical("err open databases", err)
 		return
 	}
-	defer func() {
-		dbInstance, _ := db.DB()
-		_ = dbInstance.Close()
-	}()
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	setTemplate(router)
-	setSessions(router)
-	router.Use(SharedData())
+	setTemplate(router) // 设置模板
+	setSessions(router) // 设置会话
+	router.Use(SharedData()) // 共享数据
 
-	//Periodic tasks
-	gocron.Every(1).Day().Do(controllers.CreateXMLSitemap)
-	gocron.Every(7).Days().Do(controllers.Backup)
-	gocron.Start()
+	//Periodic tasks 定时任务
+	s := gocron.NewScheduler(time.Local) // 创建一个调度器
+	s.Every(1).Day().Do(controllers.CreateXMLSitemap)   // 搜索引擎优化
+	s.Every(7).Days().Do(controllers.Backup) // 备份数据库
+	s.StartAsync() // 启动定时任务
 
 	router.Static("/static", filepath.Join(helpers.GetCurrentDirectory(), system.GetConfiguration().PublicDir))
 
@@ -187,7 +192,7 @@ func setTemplate(engine *gin.Engine) {
 		"add":        helpers.Add,
 		"minus":      helpers.Minus,
 		"listtag":    helpers.ListTag,
-	}
+	}   
 
 	engine.SetFuncMap(funcMap)
 	engine.LoadHTMLGlob(filepath.Join(helpers.GetCurrentDirectory(), system.GetConfiguration().ViewDir))
@@ -213,6 +218,7 @@ func setSessions(router *gin.Engine) {
 //+++++++++++++ middlewares +++++++++++++++++++++++
 
 // SharedData fills in common data, such as user info, etc...
+// 确认用户是否登录，如果登录，则将用户信息设置到上下文中
 func SharedData() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		session := sessions.Default(c)

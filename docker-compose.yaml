@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   wblog:
     build:
@@ -14,36 +12,10 @@ services:
     environment:
       - GIN_MODE=release
     restart: always
-    depends_on:
-      mysql:
-        condition: service_healthy
-    networks:
-      - wblog_network
-
-  mysql:
-    image: mysql:8.0
-    environment:
-      - MYSQL_ROOT_PASSWORD=mysql
-      - MYSQL_DATABASE=wblog
-      - MYSQL_USER=wblog
-      - MYSQL_PASSWORD=wblog
-      - MYSQL_INITDB_ARGS=--sql-mode="ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    ports:
-      - "3306:3306"
-    restart: always
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pmysql"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-    command: --sql-mode="ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION"
     networks:
       - wblog_network
 
 volumes:
-  mysql_data:
   wblog_data:
 
 networks:

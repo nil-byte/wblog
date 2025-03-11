@@ -47,11 +47,11 @@ func GetCurrentTime() time.Time {
 }
 
 func GetCurrentDirectory() string {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+	dir, err := filepath.Abs(filepath.Dir(os.Args[0])) // 获取当前绝对目录
 	if err != nil {
 		seelog.Critical(err)
 	}
-	return strings.Replace(dir, "\\", "/", -1)
+	return strings.Replace(dir, "\\", "/", -1) // 将反斜杠替换为斜杠
 }
 
 func SendToMail(user, password, host, to, subject, body, mailType string) error {
@@ -80,59 +80,55 @@ func PathExists(path string) (bool, error) {
 }
 
 func Decrypt(ciphertext, key []byte) ([]byte, error) {
-	// Create the AES cipher
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
+    // 创建AES密码块
+    block, err := aes.NewCipher(key)
+    if err != nil {
+        return nil, err
+    }
 
-	// Before even testing the decryption,
-	// if the text is too small, then it is incorrect
-	if len(ciphertext) < aes.BlockSize {
-		err = errors.New("Text is too short")
-		return nil, err
-	}
+    // 创建GCM实例
+    gcm, err := cipher.NewGCM(block)
+    if err != nil {
+        return nil, err
+    }
 
-	// Get the 16 byte IV
-	iv := ciphertext[:aes.BlockSize]
+    // 检查密文长度是否小于Nonce长度
+    if len(ciphertext) < gcm.NonceSize() {
+        return nil, errors.New("ciphertext too short")
+    }
 
-	// Remove the IV from the ciphertext
-	ciphertext = ciphertext[aes.BlockSize:]
+    // 分离Nonce和实际的密文
+    nonce, ciphertext := ciphertext[:gcm.NonceSize()], ciphertext[gcm.NonceSize():]
 
-	// Return a decrypted stream
-	stream := cipher.NewCFBDecrypter(block, iv)
+    // 使用GCM进行解密
+    plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+    if err != nil {
+        return nil, err
+    }
 
-	// Decrypt bytes from ciphertext
-	stream.XORKeyStream(ciphertext, ciphertext)
-
-	return ciphertext, nil
+    return plaintext, nil
 }
 
 func Encrypt(plaintext, key []byte) ([]byte, error) {
+    // 创建AES密码块
+    block, err := aes.NewCipher(key)
+    if err != nil {
+        return nil, err
+    }
 
-	// Create the AES cipher
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, err
-	}
+    // 创建GCM实例
+    gcm, err := cipher.NewGCM(block)
+    if err != nil {
+        return nil, err
+    }
 
-	// Empty array of 16 + plaintext length
-	// Include the IV at the beginning
-	ciphertext := make([]byte, aes.BlockSize+len(plaintext))
+    // 创建随机的Nonce，GCM标准推荐长度为12字节
+    nonce := make([]byte, gcm.NonceSize())
+    if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+        return nil, err
+    }
 
-	// Slice of first 16 bytes
-	iv := ciphertext[:aes.BlockSize]
-
-	// Write 16 rand bytes to fill iv
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, err
-	}
-
-	// Return an encrypted stream
-	stream := cipher.NewCFBEncrypter(block, iv)
-
-	// Encrypt bytes from plaintext to ciphertext
-	stream.XORKeyStream(ciphertext[aes.BlockSize:], plaintext)
-
-	return ciphertext, nil
+    // 使用GCM进行加密并附加认证标签
+    ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
+    return ciphertext, nil
 }

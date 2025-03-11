@@ -3,14 +3,15 @@ package models
 import (
 	"database/sql"
 	"fmt"
+	"html/template"
+	"time"
+
 	"github.com/glebarez/sqlite"
 	"github.com/microcosm-cc/bluemonday"
 	"github.com/russross/blackfriday"
 	"github.com/wangsongyan/wblog/system"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"html/template"
-	"time"
 )
 
 // I don't need soft delete,so I use customized BaseModel instead gorm.Model
@@ -20,42 +21,42 @@ type BaseModel struct {
 	UpdatedAt time.Time
 }
 
-// table pages
+// table pages 页面信息
 type Page struct {
 	BaseModel
-	Title       string `gorm:"type:text"`     // title
-	Body        string `gorm:"type:longtext"` // body
-	View        int    // view count
-	IsPublished bool   // published or not
+	Title       string `gorm:"type:text"`     // title 标题
+	Body        string `gorm:"type:longtext"` // body 内容
+	View        int    // view count 浏览次数
+	IsPublished bool   // published or not 是否发布
 }
 
-// table posts
+// table posts 文章信息
 type Post struct {
 	BaseModel
-	Title        string     `gorm:"type:text"`     // title
-	Body         string     `gorm:"type:longtext"` // body
-	View         int        // view count
-	IsPublished  bool       // published or not
-	Tags         []*Tag     `gorm:"-"`  // tags of post
-	Comments     []*Comment `gorm:"-"`  // comments of post
-	CommentTotal int        `gorm:"->"` // count of comment
+	Title        string     `gorm:"type:text"`     // title 标题
+	Body         string     `gorm:"type:longtext"` // body 内容
+	View         int        // view count 浏览次数
+	IsPublished  bool       // published or not 是否发布
+	Tags         []*Tag     `gorm:"-"`  // tags of post 文章标签
+	Comments     []*Comment `gorm:"-"`  // comments of post 文章评论
+	CommentTotal int        `gorm:"->"` // count of comment 评论总数
 }
 
-// table tags
+// table tags 标签信息
 type Tag struct {
 	BaseModel
-	Name  string // tag name
-	Total int    `gorm:"->"` // count of post
+	Name  string // tag name 标签名称
+	Total int    `gorm:"->"` // count of post 使用该标签的文章总数
 }
 
-// table post_tags
+// table post_tags 文章标签关系
 type PostTag struct {
 	BaseModel
-	PostId uint `gorm:"uniqueIndex:uk_post_tag"` // post id
-	TagId  uint `gorm:"uniqueIndex:uk_post_tag"` // tag id
-}
+	PostId uint `gorm:"uniqueIndex:uk_post_tag"` // post id 文章id
+	TagId  uint `gorm:"uniqueIndex:uk_post_tag"` // tag id 标签id
+}    
 
-// table users
+// table users 用户信息
 type User struct {
 	gorm.Model
 	Email         string    `gorm:"uniqueIndex;default:null"` //邮箱
@@ -72,7 +73,7 @@ type User struct {
 	LockState     bool      `gorm:"default:false"` //锁定状态
 }
 
-// table comments
+// table comments 评论信息
 type Comment struct {
 	BaseModel
 	UserID    uint   // 用户id
@@ -80,12 +81,12 @@ type Comment struct {
 	PostID    uint   // 文章id
 	ReadState bool   `gorm:"default:false"` // 阅读状态
 	//Replies []*Comment // 评论
-	NickName  string `gorm:"-"`
-	AvatarUrl string `gorm:"-"`
-	GithubUrl string `gorm:"-"`
+	NickName  string `gorm:"-"` // 昵称
+	AvatarUrl string `gorm:"-"` // 头像链接
+	GithubUrl string `gorm:"-"` // github地址
 }
 
-// table subscribe
+// table subscribe 订阅信息
 type Subscriber struct {
 	gorm.Model
 	Email          string    `gorm:"type:varchar(255);uniqueIndex"` //邮箱
@@ -96,7 +97,7 @@ type Subscriber struct {
 	Signature      string    //签名
 }
 
-// table link
+// table link 友情链接
 type Link struct {
 	gorm.Model
 	Name string //名称
@@ -105,47 +106,53 @@ type Link struct {
 	View int    //访问次数
 }
 
-// query result
+// query result 归档查询结果	
 type QrArchive struct {
-	ArchiveDate time.Time //month
-	Total       int       //total
-	Year        int       // year
-	Month       int       // month
+	ArchiveDate time.Time //time 时间	
+	Total       int       //total 总数
+	Year        int       // year 年份
+	Month       int       // month 月份
 }
 
+// SmmsFile 文件存储表
 type SmmsFile struct {
 	BaseModel
-	FileName  string `json:"filename"`
-	StoreName string `json:"storename"`
-	Size      int    `json:"size"`
-	Width     int    `json:"width"`
-	Height    int    `json:"height"`
-	Hash      string `json:"hash"`
-	Delete    string `json:"delete"`
-	Url       string `json:"url"`
-	Path      string `json:"path"`
+	FileName  string `json:"filename"` //文件名
+	StoreName string `json:"storename"` //存储名
+	Size      int    `json:"size"` //文件大小 （字节）
+	Width     int    `json:"width"` //图片宽度
+	Height    int    `json:"height"` //图片高度
+	Hash      string `json:"hash"` //文件哈希值
+	Delete    string `json:"delete"` //删除链接
+	Url       string `json:"url"` //访问链接
+	Path      string `json:"path"` //本地存储路径
 }
 
-var DB *gorm.DB
+var DB *gorm.DB //数据库实例
+func InitDB() (err error) {
+	cfg := system.GetConfiguration()
 
-func InitDB() (*gorm.DB, error) {
-	var (
-		db  *gorm.DB
-		err error
-		cfg = system.GetConfiguration()
-	)
-	if cfg.Database.Dialect == "sqlite" {
-		db, err = gorm.Open(sqlite.Open(cfg.Database.DSN), &gorm.Config{})
-	} else if cfg.Database.Dialect == "mysql" {
-		db, err = gorm.Open(mysql.Open(cfg.Database.DSN), &gorm.Config{})
-	}
+	switch cfg.Database.Dialect {
+    case "sqlite":
+       DB, err = gorm.Open(sqlite.Open(cfg.Database.DSN), &gorm.Config{})
+    case "mysql":
+        DB, err = gorm.Open(mysql.Open(cfg.Database.DSN), &gorm.Config{})
+    default:
+        return fmt.Errorf("unsupported database dialect: %s", cfg.Database.Dialect)
+    }
 	if err != nil {
-		return nil, err
+		return err
 	}
-	DB = db
 	//db.LogMode(true)
-	db.AutoMigrate(&Page{}, &Post{}, &Tag{}, &PostTag{}, &User{}, &Comment{}, &Subscriber{}, &Link{}, &SmmsFile{})
-	return db, err
+	sqlDb, err := DB.DB() // (无需手动关闭，已经使用连接池来管理数据库连接，会自动关闭)
+	if err != nil {
+		return err
+	}
+	sqlDb.SetMaxIdleConns(10) // 设置最大空闲连接数
+	sqlDb.SetMaxOpenConns(100) // 设置最大打开连接数
+	sqlDb.SetConnMaxLifetime(time.Hour) // 设置连接最大生命周期
+	DB.AutoMigrate(&Page{}, &Post{}, &Tag{}, &PostTag{}, &User{}, &Comment{}, &Subscriber{}, &Link{}, &SmmsFile{}) //自动迁移表结构
+	return nil  
 }
 
 // Page
@@ -432,7 +439,14 @@ func (tag *Tag) Insert() error {
 
 func ListTag() ([]*Tag, error) {
 	var tags []*Tag
-	rows, err := DB.Raw("select t.*,count(*) total from tags t inner join post_tags pt on t.id = pt.tag_id inner join posts p on pt.post_id = p.id where p.is_published = ? group by pt.tag_id", true).Rows()
+	rows, err := DB.Raw(`
+    SELECT t.*, COUNT(*) AS total
+    FROM tags t
+    INNER JOIN post_tags pt ON t.id = pt.tag_id
+    INNER JOIN posts p ON pt.post_id = p.id
+    WHERE p.is_published = TRUE
+    GROUP BY pt.tag_id
+`, true).Rows()
 	if err != nil {
 		return nil, err
 	}

@@ -2,6 +2,9 @@ FROM golang:1.22 AS builder
 
 WORKDIR /app
 
+# 安装编译依赖
+RUN apt-get update && apt-get install -y gcc musl-dev sqlite3 libsqlite3-dev
+
 # 复制go mod文件
 COPY go.mod go.sum ./
 RUN go mod download
@@ -18,13 +21,16 @@ FROM debian:bookworm-slim
 WORKDIR /app
 
 # 安装运行时依赖
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ca-certificates sqlite3 && rm -rf /var/lib/apt/lists/*
 
 # 复制编译好的二进制文件和必要的配置文件
 COPY --from=builder /app/wblog /app/
 COPY --from=builder /app/conf /app/conf
 COPY --from=builder /app/static /app/static
 COPY --from=builder /app/views /app/views
+
+# 创建数据目录并设置权限
+RUN mkdir -p /app/data && chmod 777 /app/data
 
 # 设置环境变量
 ENV GIN_MODE=release

@@ -10,8 +10,8 @@ view = "views/**/*"
 signup_enabled = true
 
 [database]
-dialect = "mysql"
-dsn = "wblog:wblog@tcp(mysql:3306)/wblog?charset=utf8mb4&parseTime=True&loc=Asia%2FShanghai"
+dialect = "sqlite"
+dsn = "/app/data/wblog.db"
 
 [seo]
 description = "Wblog,基于Go语言的博客系统"
@@ -56,7 +56,7 @@ url = "/index"
 
 [[navigators]]
 title = "关于"
-url = "/page/6"
+url = "/page/1"
 
 [[navigators]]
 title = "RSS"
