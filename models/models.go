@@ -54,7 +54,7 @@ type PostTag struct {
 	BaseModel
 	PostId uint `gorm:"uniqueIndex:uk_post_tag"` // post id 文章id
 	TagId  uint `gorm:"uniqueIndex:uk_post_tag"` // tag id 标签id
-}    
+}
 
 // table users 用户信息
 type User struct {
@@ -106,9 +106,9 @@ type Link struct {
 	View int    //访问次数
 }
 
-// query result 归档查询结果	
+// query result 归档查询结果
 type QrArchive struct {
-	ArchiveDate time.Time //time 时间	
+	ArchiveDate time.Time //time 时间
 	Total       int       //total 总数
 	Year        int       // year 年份
 	Month       int       // month 月份
@@ -117,15 +117,15 @@ type QrArchive struct {
 // SmmsFile 文件存储表
 type SmmsFile struct {
 	BaseModel
-	FileName  string `json:"filename"` //文件名
+	FileName  string `json:"filename"`  //文件名
 	StoreName string `json:"storename"` //存储名
-	Size      int    `json:"size"` //文件大小 （字节）
-	Width     int    `json:"width"` //图片宽度
-	Height    int    `json:"height"` //图片高度
-	Hash      string `json:"hash"` //文件哈希值
-	Delete    string `json:"delete"` //删除链接
-	Url       string `json:"url"` //访问链接
-	Path      string `json:"path"` //本地存储路径
+	Size      int    `json:"size"`      //文件大小 （字节）
+	Width     int    `json:"width"`     //图片宽度
+	Height    int    `json:"height"`    //图片高度
+	Hash      string `json:"hash"`      //文件哈希值
+	Delete    string `json:"delete"`    //删除链接
+	Url       string `json:"url"`       //访问链接
+	Path      string `json:"path"`      //本地存储路径
 }
 
 var DB *gorm.DB //数据库实例
@@ -133,13 +133,13 @@ func InitDB() (err error) {
 	cfg := system.GetConfiguration()
 
 	switch cfg.Database.Dialect {
-    case "sqlite":
-       DB, err = gorm.Open(sqlite.Open(cfg.Database.DSN), &gorm.Config{})
-    case "mysql":
-        DB, err = gorm.Open(mysql.Open(cfg.Database.DSN), &gorm.Config{})
-    default:
-        return fmt.Errorf("unsupported database dialect: %s", cfg.Database.Dialect)
-    }
+	case "sqlite":
+		DB, err = gorm.Open(sqlite.Open(cfg.Database.DSN), &gorm.Config{})
+	case "mysql":
+		DB, err = gorm.Open(mysql.Open(cfg.Database.DSN), &gorm.Config{})
+	default:
+		return fmt.Errorf("unsupported database dialect: %s", cfg.Database.Dialect)
+	}
 	if err != nil {
 		return err
 	}
@@ -148,11 +148,11 @@ func InitDB() (err error) {
 	if err != nil {
 		return err
 	}
-	sqlDb.SetMaxIdleConns(10) // 设置最大空闲连接数
-	sqlDb.SetMaxOpenConns(100) // 设置最大打开连接数
-	sqlDb.SetConnMaxLifetime(time.Hour) // 设置连接最大生命周期
+	sqlDb.SetMaxIdleConns(10)                                                                                      // 设置最大空闲连接数
+	sqlDb.SetMaxOpenConns(100)                                                                                     // 设置最大打开连接数
+	sqlDb.SetConnMaxLifetime(time.Hour)                                                                            // 设置连接最大生命周期
 	DB.AutoMigrate(&Page{}, &Post{}, &Tag{}, &PostTag{}, &User{}, &Comment{}, &Subscriber{}, &Link{}, &SmmsFile{}) //自动迁移表结构
-	return nil  
+	return nil
 }
 
 // Page
@@ -232,6 +232,7 @@ func (post *Post) Delete() error {
 	return DB.Delete(post).Error
 }
 
+// Excerpt 获取文章摘要
 func (post *Post) Excerpt() template.HTML {
 	//you can sanitize, cut it down, add images, etc
 	policy := bluemonday.StrictPolicy() //remove all html tags
@@ -252,6 +253,7 @@ func ListAllPost(tag string) ([]*Post, error) {
 	return _listPost(tag, false, 0, 0)
 }
 
+// 获取文章列表（按标签/全部）
 func _listPost(tagId string, published bool, pageIndex, pageSize int) ([]*Post, error) {
 	var posts []*Post
 	var err error
@@ -289,6 +291,7 @@ func _listPost(tagId string, published bool, pageIndex, pageSize int) ([]*Post, 
 	return posts, err
 }
 
+// 获取阅读最多的文章
 func MustListMaxReadPost() (posts []*Post) {
 	posts, _ = ListMaxReadPost()
 	return
@@ -299,6 +302,7 @@ func ListMaxReadPost() (posts []*Post, err error) {
 	return
 }
 
+// 获取评论最多的文章
 func MustListMaxCommentPost() (posts []*Post) {
 	posts, _ = ListMaxCommentPost()
 	return
@@ -321,6 +325,7 @@ func ListMaxCommentPost() (posts []*Post, err error) {
 	return
 }
 
+// 文章数量（按标签/全部）
 func CountPostByTag(tagId string) (count int, err error) {
 	if len(tagId) > 0 {
 		err = DB.Raw("select count(*) from posts p inner join post_tags pt on p.id = pt.post_id where pt.tag_id = ? and p.is_published = ?", tagId, true).Row().Scan(&count)
@@ -347,6 +352,7 @@ func MustListPostArchives() []*QrArchive {
 	return archives
 }
 
+// 获取文章归档
 func ListPostArchives() ([]*QrArchive, error) {
 	var (
 		archives []*QrArchive
@@ -437,6 +443,7 @@ func (tag *Tag) Insert() error {
 	return DB.FirstOrCreate(tag, "name = ?", tag.Name).Error
 }
 
+// 获取标签列表
 func ListTag() ([]*Tag, error) {
 	var tags []*Tag
 	rows, err := DB.Raw(`
@@ -444,7 +451,7 @@ func ListTag() ([]*Tag, error) {
     FROM tags t
     INNER JOIN post_tags pt ON t.id = pt.tag_id
     INNER JOIN posts p ON pt.post_id = p.id
-    WHERE p.is_published = TRUE
+    WHERE p.is_published = ?
     GROUP BY pt.tag_id
 `, true).Rows()
 	if err != nil {
@@ -464,6 +471,7 @@ func MustListTag() []*Tag {
 	return tags
 }
 
+// 获取文章标签（按文章id）
 func ListTagByPostId(id uint) ([]*Tag, error) {
 	var tags []*Tag
 	rows, err := DB.Raw("select t.* from tags t inner join post_tags pt on t.id = pt.tag_id where pt.post_id = ?", id).Rows()
@@ -689,6 +697,7 @@ func (link *Link) Delete() error {
 	return DB.Delete(link).Error
 }
 
+// 获取友情链接
 func ListLinks() ([]*Link, error) {
 	var links []*Link
 	err := DB.Order("sort asc").Find(&links).Error
@@ -715,4 +724,9 @@ func GetLinkById(id uint) (*Link, error) {
 func (sf SmmsFile) Insert() (err error) {
 	err = DB.Create(&sf).Error
 	return
+}
+
+// 更新用户密码
+func (user *User) UpdatePassword() error {
+	return DB.Model(user).Update("password", user.Password).Error
 }

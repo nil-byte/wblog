@@ -3,7 +3,11 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/alimoeeny/gooauth2"
+	"io"
+	"net/http"
+	"regexp"
+
+	oauth "github.com/alimoeeny/gooauth2"
 	"github.com/cihub/seelog"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -11,8 +15,7 @@ import (
 	"github.com/wangsongyan/wblog/helpers"
 	"github.com/wangsongyan/wblog/models"
 	"github.com/wangsongyan/wblog/system"
-	"io/ioutil"
-	"net/http"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type GithubUserInfo struct {
@@ -54,12 +57,14 @@ func SigninGet(c *gin.Context) {
 	})
 }
 
+// SignupGet 注册页面
 func SignupGet(c *gin.Context) {
 	c.HTML(http.StatusOK, "auth/signup.html", gin.H{
 		"cfg": system.GetConfiguration(),
 	})
 }
 
+// LogoutGet 注销
 func LogoutGet(c *gin.Context) {
 	s := sessions.Default(c)
 	s.Clear()
@@ -67,31 +72,42 @@ func LogoutGet(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, "/signin")
 }
 
+// SignupPost 注册
 func SignupPost(c *gin.Context) {
-	var (
-		err error
-	)
-	email := c.PostForm("email")
-	telephone := c.PostForm("telephone")
-	password := c.PostForm("password")
-	if len(email) == 0 || len(password) == 0 {
+	email := c.DefaultPostForm("email", "")
+	telephone := c.DefaultPostForm("telephone", "")
+	password := c.DefaultPostForm("password", "")
+	// 校验邮箱格式
+	emailPattern := `^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$`
+	matched, _ := regexp.MatchString(emailPattern, email)
+	if !matched || len(password) < 8 {
 		c.HTML(http.StatusOK, "auth/signup.html", gin.H{
-			"message": "email or password cannot be null",
+			"message": "Invalid email format or password too short",
 			"cfg":     system.GetConfiguration(),
 		})
 		return
 	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		c.HTML(http.StatusOK, "auth/signup.html", gin.H{
+			"message": "Error while hashing password",
+			"cfg":     system.GetConfiguration(),
+		})
+		return
+	}
+
 	user := &models.User{
 		Email:     email,
 		Telephone: telephone,
-		Password:  password,
+		Password:  string(hashedPassword),
 		IsAdmin:   true,
+		LockState: false,
 	}
-	user.Password = helpers.Md5(user.Email + user.Password)
-	err = user.Insert()
-	if err != nil {
+
+	if err := user.Insert(); err != nil {
 		c.HTML(http.StatusOK, "auth/signup.html", gin.H{
-			"message": "email already exists",
+			"message": "Email already exists",
 			"cfg":     system.GetConfiguration(),
 		})
 		return
@@ -99,6 +115,7 @@ func SignupPost(c *gin.Context) {
 	c.Redirect(http.StatusMovedPermanently, "/signin")
 }
 
+// SigninPost 登录
 func SigninPost(c *gin.Context) {
 	var (
 		err  error
@@ -114,31 +131,54 @@ func SigninPost(c *gin.Context) {
 		return
 	}
 	user, err = models.GetUserByUsername(username)
-	if err != nil || user.Password != helpers.Md5(username+password) {
+	if err != nil {
 		c.HTML(http.StatusOK, "auth/signin.html", gin.H{
 			"message": "invalid username or password",
 			"cfg":     system.GetConfiguration(),
 		})
 		return
 	}
-	if user.LockState {
+
+	// 首先尝试 bcrypt 验证
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
+		// bcrypt 验证失败，尝试 md5 验证
+		if user.Password == helpers.Md5(password) {
+			// md5 验证成功，更新为 bcrypt 密码
+			hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+			user.Password = string(hashedPassword)
+			user.UpdatePassword()
+			err = nil // 清除 bcrypt 验证失败的错误
+		}
+	}
+	if err == nil {
+		if user.LockState {
+			c.HTML(http.StatusOK, "auth/signin.html", gin.H{
+				"message": "Your account have been locked!",
+				"cfg":     system.GetConfiguration(),
+			})
+			return
+		}
+		s := sessions.Default(c)
+		s.Clear()
+		s.Set(SessionKey, user.ID)
+		s.Save()
+		if user.IsAdmin {
+			c.Redirect(http.StatusMovedPermanently, "/admin/index")
+		} else {
+			c.Redirect(http.StatusMovedPermanently, "/")
+		}
+		return
+	} else {
 		c.HTML(http.StatusOK, "auth/signin.html", gin.H{
-			"message": "Your account have been locked",
+			"message": "Invalid username or password.",
 			"cfg":     system.GetConfiguration(),
 		})
 		return
 	}
-	s := sessions.Default(c)
-	s.Clear()
-	s.Set(SessionKey, user.ID)
-	s.Save()
-	if user.IsAdmin {
-		c.Redirect(http.StatusMovedPermanently, "/admin/index")
-	} else {
-		c.Redirect(http.StatusMovedPermanently, "/")
-	}
 }
 
+// Oauth2Callback 回调
 func Oauth2Callback(c *gin.Context) {
 	var (
 		userInfo *GithubUserInfo
@@ -260,7 +300,7 @@ func getGithubUserInfoByAccessToken(token string) (*GithubUserInfo, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	body, err = ioutil.ReadAll(resp.Body)
+	body, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}

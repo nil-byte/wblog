@@ -12,6 +12,7 @@ import (
 	"github.com/wangsongyan/wblog/system"
 )
 
+// RssGet 获取RSS
 func RssGet(c *gin.Context) {
 	cfg := system.GetConfiguration()
 	now := helpers.GetCurrentTime()
@@ -31,7 +32,7 @@ func RssGet(c *gin.Context) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
-
+ 
 	for _, post := range posts {
 		item := &feeds.Item{
 			Id:          fmt.Sprintf("%s/post/%d", domain, post.ID),
